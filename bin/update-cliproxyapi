@@ -1,0 +1,57 @@
+#!/bin/bash
+# Bumps Formula/cliproxyapi.rb to the latest CLIProxyAPI GitHub release and pushes it.
+# Once cliproxyapi is installed from this tap, also upgrades it and restarts the service.
+# Run every 15 minutes by launchd/com.rakshithbhat03.cliproxyapi-updater.plist.
+set -euo pipefail
+export PATH="/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ENV_HINTS=1
+
+REPO=router-for-me/CLIProxyAPI
+TAP=rakshithbhat03/tap
+ARCH=darwin_aarch64
+TAP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+FORMULA="$TAP_DIR/Formula/cliproxyapi.rb"
+
+log() { echo "$(date '+%Y-%m-%d %H:%M:%S') $*"; }
+formula_version() { sed -nE 's|.*/releases/download/v([^/]+)/.*|\1|p' "$FORMULA"; }
+
+# The /releases/latest redirect names the tag without needing an API token or rate limit.
+latest=$(curl -fsSI "https://github.com/$REPO/releases/latest" |
+  awk -F/ 'tolower($1) ~ /^location:/ { print $NF }' | tr -d '\r')
+latest=${latest#v}
+[[ $latest =~ ^[0-9]+(\.[0-9]+)+$ ]] || { log "could not read latest release: '$latest'"; exit 1; }
+
+current=$(formula_version)
+if [[ $latest != "$current" ]]; then
+  asset="CLIProxyAPI_${latest}_${ARCH}.tar.gz"
+  # Assets upload after the release is created; until checksums.txt lists ours, try next run.
+  sha=$(curl -fsSL "https://github.com/$REPO/releases/download/v$latest/checksums.txt" 2>/dev/null |
+    awk -v a="$asset" '$2 == a { print $1 }') || true
+  if [[ ! $sha =~ ^[0-9a-f]{64}$ ]]; then
+    log "v$latest: $asset not in checksums.txt yet"
+    exit 0
+  fi
+  git -C "$TAP_DIR" pull -q --rebase origin main || log "pull failed; committing on local main"
+  sed -i '' -E \
+    -e "s|/download/v[^/]+/CLIProxyAPI_[^_]+_|/download/v$latest/CLIProxyAPI_${latest}_|" \
+    -e "s|^(  sha256 )\"[0-9a-f]{64}\"|\1\"$sha\"|" "$FORMULA"
+  git -C "$TAP_DIR" commit -qm "cliproxyapi $latest" -- Formula/cliproxyapi.rb
+  log "formula bumped $current -> $latest"
+fi
+
+# Push anything a previous run couldn't (offline, auth hiccup).
+if [[ -n $(git -C "$TAP_DIR" log --oneline origin/main..HEAD 2>/dev/null) ]]; then
+  git -C "$TAP_DIR" push -q origin HEAD:main || log "push failed; will retry next run"
+fi
+
+# Leave the homebrew-core install (or no install) alone; only manage the one from this tap.
+receipt=/opt/homebrew/opt/cliproxyapi/INSTALL_RECEIPT.json
+grep -Eq "\"tap\": ?\"$TAP\"" "$receipt" 2>/dev/null || exit 0
+
+target=$(formula_version)
+installed=$(brew list --versions cliproxyapi | awk '{ print $NF }')
+if [[ $installed != "$target" ]]; then
+  brew upgrade "$TAP/cliproxyapi"
+  brew services restart cliproxyapi
+  log "upgraded $installed -> $target and restarted the service"
+fi

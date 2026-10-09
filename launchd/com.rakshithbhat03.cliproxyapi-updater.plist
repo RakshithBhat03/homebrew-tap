@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Runs bin/update-cliproxyapi every 15 minutes. Install: copy to ~/Library/LaunchAgents and
+     `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.rakshithbhat03.cliproxyapi-updater.plist` -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.rakshithbhat03.cliproxyapi-updater</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/opt/homebrew/Library/Taps/rakshithbhat03/homebrew-tap/bin/update-cliproxyapi</string>
+	</array>
+	<key>StartInterval</key>
+	<integer>900</integer>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>/tmp/cliproxyapi-updater.log</string>
+	<key>StandardErrorPath</key>
+	<string>/tmp/cliproxyapi-updater.log</string>
+</dict>
+</plist>
