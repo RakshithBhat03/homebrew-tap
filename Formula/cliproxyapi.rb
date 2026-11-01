@@ -3,8 +3,8 @@
 class Cliproxyapi < Formula
   desc "Wrap Gemini CLI, Codex, Claude Code, Qwen Code as an API service"
   homepage "https://github.com/router-for-me/CLIProxyAPI"
-  url "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.49/CLIProxyAPI_8.0.49_darwin_aarch64.tar.gz"
-  sha256 "07c14333f1cd960e0445fc831de578305d835724dde735776d4f136b7195a4b3"
+  url "https://github.com/router-for-me/CLIProxyAPI/releases/download/v8.0.50/CLIProxyAPI_8.0.50_darwin_aarch64.tar.gz"
+  sha256 "01fdd3332f13709b2bbc42ea8a9ec4b70897f2b84c4008e83ab71f626b9fcabc"
   license "MIT"
 
   # bin/update-cliproxyapi bumps this; skipping keeps the autobump workflow from opening duplicate PRs.
