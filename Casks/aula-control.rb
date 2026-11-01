@@ -1,6 +1,6 @@
 cask "aula-control" do
-  version "1.0.0"
-  sha256 "a1a620ed25247e067ed6e5bfce458ca0c34fcbbdaeebdfd0062c237b1d3e002d"
+  version "1.0.1"
+  sha256 "207d305bed3b3026fb0810e982227b8f232c7ad71da51177b8e8485314bb9800"
 
   url "https://github.com/RakshithBhat03/aula-control/releases/download/v#{version}/AULA-Control-#{version}.dmg"
   name "AULA Control"
