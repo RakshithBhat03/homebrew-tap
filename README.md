@@ -5,9 +5,20 @@
 | [`portmap`](https://github.com/RakshithBhat03/portmap) | Bookmarks for everything listening on localhost |
 | [`cliproxyapi`](https://github.com/router-for-me/CLIProxyAPI) | Prebuilt CLIProxyAPI releases (Apple silicon), bumped within minutes of each release |
 
+| Cask | Description |
+| --- | --- |
+| [`aula-control`](https://github.com/RakshithBhat03/aula-control) | macOS app and `aula` CLI for the AULA F108 Pro keyboard |
+
 ## How do I install these formulae?
 
 `brew install rakshithbhat03/tap/<formula>`
+
+Casks need to be trusted once first (Homebrew 7+):
+
+```bash
+brew trust --cask rakshithbhat03/tap/aula-control
+brew install --cask rakshithbhat03/tap/aula-control
+```
 
 Or `brew tap rakshithbhat03/tap` and then `brew install <formula>`.
 
