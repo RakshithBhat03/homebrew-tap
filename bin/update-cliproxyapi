@@ -48,10 +48,32 @@ fi
 receipt=/opt/homebrew/opt/cliproxyapi/INSTALL_RECEIPT.json
 grep -Eq "\"tap\": ?\"$TAP\"" "$receipt" 2>/dev/null || exit 0
 
+# The live config lives in ~/.config so a formula upgrade cannot replace it with the
+# stock template (which disables plugins and therefore all provider models). The
+# formula symlinks Homebrew's etc path at it; repair that if an older install left a
+# plain file behind.
+STABLE_CONFIG="$HOME/.config/cliproxyapi/config.yaml"
+ETC_CONFIG="/opt/homebrew/etc/cliproxyapi.conf"
+config_repaired=0
+if [[ -f $STABLE_CONFIG ]]; then
+  if [[ ! -L $ETC_CONFIG || $(readlink "$ETC_CONFIG") != "$STABLE_CONFIG" ]]; then
+    if [[ -f $ETC_CONFIG ]] && ! cmp -s "$STABLE_CONFIG" "$ETC_CONFIG"; then
+      cp -p "$ETC_CONFIG" "$ETC_CONFIG.bak-$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
+    fi
+    rm -f "$ETC_CONFIG"
+    ln -s "$STABLE_CONFIG" "$ETC_CONFIG"
+    config_repaired=1
+    log "restored $ETC_CONFIG -> $STABLE_CONFIG"
+  fi
+fi
+
 target=$(formula_version)
 installed=$(brew list --versions cliproxyapi | awk '{ print $NF }')
 if [[ $installed != "$target" ]]; then
   brew upgrade "$TAP/cliproxyapi"
   brew services restart cliproxyapi
   log "upgraded $installed -> $target and restarted the service"
+elif [[ $config_repaired == 1 ]]; then
+  brew services restart cliproxyapi
+  log "restarted the service to pick up the restored config"
 fi
