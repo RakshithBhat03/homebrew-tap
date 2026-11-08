@@ -77,8 +77,11 @@ opencode_plugin_enabled() {
   [[ -f $STABLE_CONFIG ]] || return 1
   [[ $(/usr/bin/ruby -ryaml -e '
     c = YAML.load_file(ARGV[0]) || {}
-    p = ((c["plugins"] || {})["configs"] || {})["opencode-go-cliproxyapi"] || {}
-    print(p["enabled"] == true ? "1" : "0")
+    configs = ((c["plugins"] || {})["configs"] || {})
+    enabled = %w[opencode-go-cliproxyapi cpa-opencode-go].any? do |id|
+      (configs[id] || {})["enabled"] == true
+    end
+    print(enabled ? "1" : "0")
   ' "$STABLE_CONFIG" 2>/dev/null) == 1 ]]
 }
 
