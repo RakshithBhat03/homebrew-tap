@@ -67,13 +67,90 @@ if [[ -f $STABLE_CONFIG ]]; then
   fi
 fi
 
+# CLIProxyAPI's /healthz can answer before its plugin host and model registry
+# finish loading. Treat the proxy as ready only when /v1/models returns models.
+service_started() {
+  brew services list 2>/dev/null | awk '$1 == "cliproxyapi" && $2 == "started" { found = 1 } END { exit found ? 0 : 1 }'
+}
+
+opencode_plugin_enabled() {
+  [[ -f $STABLE_CONFIG ]] || return 1
+  [[ $(/usr/bin/ruby -ryaml -e '
+    c = YAML.load_file(ARGV[0]) || {}
+    p = ((c["plugins"] || {})["configs"] || {})["opencode-go-cliproxyapi"] || {}
+    print(p["enabled"] == true ? "1" : "0")
+  ' "$STABLE_CONFIG" 2>/dev/null) == 1 ]]
+}
+
+proxy_models_ready() {
+  local body
+  body=$(curl -fsS --max-time 2 "http://127.0.0.1:8317/v1/models" 2>/dev/null) || return 1
+  grep -q '"id"' <<<"$body" || return 1
+  if [[ $plugin_check == 1 ]]; then
+    grep -q '"opencode-go/' <<<"$body" || return 1
+  fi
+  return 0
+}
+
+wait_for_models() {
+  local tries=${1:-45} i
+  for ((i = 0; i < tries; i++)); do
+    if proxy_models_ready; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+stop_and_wait() {
+  brew services stop cliproxyapi >/dev/null 2>&1 || true
+  local i
+  for ((i = 0; i < 30; i++)); do
+    pgrep -f 'cli-proxy-api -config' >/dev/null || break
+    sleep 1
+  done
+}
+
+restart_service() {
+  stop_and_wait
+  brew services start cliproxyapi >/dev/null 2>&1 || true
+}
+
+plugin_check=0
+if opencode_plugin_enabled; then
+  plugin_check=1
+fi
+
 target=$(formula_version)
 installed=$(brew list --versions cliproxyapi | awk '{ print $NF }')
 if [[ $installed != "$target" ]]; then
-  brew upgrade "$TAP/cliproxyapi"
-  brew services restart cliproxyapi
+  # Stop first and wait for the old process to exit. The plugin host unloads
+  # dynamic libraries during shutdown; starting the new binary too early can
+  # leave the opencode-go plugin loaded but unregistered (zero models).
+  stop_and_wait
+  if ! brew upgrade "$TAP/cliproxyapi"; then
+    log "upgrade failed; restarting the installed version"
+    brew services start cliproxyapi >/dev/null 2>&1 || true
+    exit 1
+  fi
+  brew services start cliproxyapi >/dev/null 2>&1 || true
   log "upgraded $installed -> $target and restarted the service"
 elif [[ $config_repaired == 1 ]]; then
-  brew services restart cliproxyapi
+  restart_service
   log "restarted the service to pick up the restored config"
+fi
+
+# Verify the proxy actually published models. A restart can race with plugin
+# registration; one clean retry is enough to recover in practice.
+if service_started && [[ $plugin_check == 1 ]]; then
+  if ! wait_for_models 45; then
+    log "proxy is up but opencode-go models are missing; restarting once"
+    restart_service
+    if wait_for_models 45; then
+      log "proxy recovered after a second restart"
+    else
+      log "ERROR: opencode-go models are still missing; check $STABLE_CONFIG and the proxy logs"
+    fi
+  fi
 fi
