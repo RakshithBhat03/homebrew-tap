@@ -4,7 +4,7 @@ cask "aula-control" do
 
   url "https://github.com/RakshithBhat03/aula-control/releases/download/v#{version}/AULA-Control-#{version}.dmg"
   name "AULA Control"
-  desc "Configure the AULA F108 Pro keyboard: lighting, per-key RGB, remapping and macros"
+  desc "Configure AULA F108 Pro keyboard: lighting, per-key RGB, remapping and macros"
   homepage "https://github.com/RakshithBhat03/aula-control"
 
   livecheck do
